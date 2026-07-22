@@ -19,6 +19,14 @@ WHERE FILES COME FROM (three layouts observed in the wild)
     Tried in that order. Per core: the newest .rbf per name-stem
     (Foo_20260101.rbf beats Foo_20250101.rbf) plus every .mra.
 
+EXTRAS AND MANUAL STEPS
+    A registry entry may name `extras` — auxiliary assets from the same
+    release, each with an explicit destination (boot ROMs, for instance).
+    They are never inferred: releases routinely also ship files that must not
+    be installed automatically. Destinations are confined to `games/` and the
+    unofficial cores tree; see validate_dest. Anything that cannot be
+    automated goes in `manual`, free text printed on every build.
+
 WHERE FILES GO on the SD card
     non-arcade   _Unofficial Cores/<file>.rbf
     arcade       _Unofficial Cores/_Arcade/<file>.mra
@@ -89,9 +97,14 @@ def gh(url, token, raw=False):
 
 
 def list_artifacts(full_name, token):
-    """[{name, url, key, size}] for every .rbf/.mra the repo distributes.
+    """(files, source) — EVERY file the layout distributes, not just cores.
+
+    Extras (boot ROMs and friends) live alongside the .rbf in the same
+    release, so the full listing is returned and the filtering happens later.
+    A layout still only 'wins' if it contains at least one .rbf/.mra:
+    otherwise a repo root full of source files would shadow the real release.
     `key` identifies the exact content version, for the hash cache."""
-    def keep(name):
+    def is_core(name):
         return name.lower().endswith((".rbf", ".mra"))
 
     # 1. releases/ folder
@@ -100,8 +113,8 @@ def list_artifacts(full_name, token):
                    token)
         found = [{"name": i["name"], "url": i["download_url"],
                   "key": i["sha"], "size": i.get("size", 0)}
-                 for i in items if i["type"] == "file" and keep(i["name"])]
-        if found:
+                 for i in items if i["type"] == "file"]
+        if any(is_core(f["name"]) for f in found):
             return found, "releases/ folder"
     except urllib.error.HTTPError as e:
         if e.code != 404:
@@ -114,8 +127,8 @@ def list_artifacts(full_name, token):
         found = [{"name": a["name"], "url": a["browser_download_url"],
                   "key": f"asset:{a['id']}:{a.get('updated_at','')}",
                   "size": a.get("size", 0)}
-                 for a in rel.get("assets", []) if keep(a["name"])]
-        if found:
+                 for a in rel.get("assets", [])]
+        if any(is_core(f["name"]) for f in found):
             return found, f"release {rel.get('tag_name', '?')}"
     except urllib.error.HTTPError as e:
         if e.code != 404:
@@ -125,8 +138,9 @@ def list_artifacts(full_name, token):
     items = gh(f"https://api.github.com/repos/{full_name}/contents/", token)
     found = [{"name": i["name"], "url": i["download_url"],
               "key": i["sha"], "size": i.get("size", 0)}
-             for i in items if i["type"] == "file" and keep(i["name"])]
-    return found, "repo root"
+             for i in items if i["type"] == "file"]
+    return (found, "repo root") if any(is_core(f["name"]) for f in found) \
+        else ([], "no layout matched")
 
 
 def select_artifacts(files):
@@ -148,6 +162,33 @@ def select_artifacts(files):
         if cur is None or date > cur[0]:
             rbfs[stem] = (date, f)
     return [f for _, f in rbfs.values()], mras
+
+
+def validate_dest(dest):
+    """Raise unless `dest` is somewhere this database may own.
+
+    The Downloader deletes what a database stops declaring, so every path here
+    is a file this repo can also DELETE from someone's SD card. That makes the
+    allowed area small on purpose: a core's own data folder and the unofficial
+    cores tree, nothing else.
+
+    The concrete danger is not hypothetical. z386's release ships a patched
+    `MiSTer` binary — the main menu executable — next to its .rbf. Installing
+    that through a database would (a) let a bad rebuild delete /media/fat/MiSTer
+    and leave the machine without a menu, and (b) fight the official database,
+    which owns that same file. Patched system binaries stay a deliberate,
+    manual act; describe them in the registry's `manual` field instead."""
+    if not dest or dest.startswith("/") or "\\" in dest:
+        raise ValueError(f"dest must be a relative path with '/': {dest!r}")
+    parts = dest.split("/")
+    if ".." in parts or "" in parts:
+        raise ValueError(f"dest must not traverse or contain empty parts: {dest!r}")
+    if parts[-1] in ("MiSTer", "menu.rbf"):
+        raise ValueError(f"refusing to manage the system binary {parts[-1]!r} "
+                         f"— it belongs to the official database and to you")
+    if not (dest.startswith("games/") or dest.startswith(f"{ROOT}/")):
+        raise ValueError(f"dest must live under 'games/' or '{ROOT}/': {dest!r}")
+    return dest
 
 
 def load_json(path, default):
@@ -206,6 +247,16 @@ def main():
                 dest = (f"{ROOT}/_Arcade/cores/{f['name']}" if arcade
                         else f"{ROOT}/{f['name']}")
                 paths.append((dest, f))
+
+            # Extras: boot ROMs and similar, named explicitly in the registry.
+            # Never inferred — the same release usually also carries things
+            # that must NOT be installed automatically (see validate_dest).
+            by_name = {f["name"]: f for f in artifacts}
+            for extra in core.get("extras", []):
+                asset = extra["asset"]
+                if asset not in by_name:
+                    raise RuntimeError(f"extra asset {asset!r} not in {source}")
+                paths.append((validate_dest(extra["dest"]), by_name[asset]))
 
             for dest, f in paths:
                 meta = cache.get(f["key"])
@@ -280,6 +331,14 @@ def main():
 
     print(f"\ndatabase -> {zpath}  ({len(files)} files, "
           f"{len(registry.get('cores', []))} cores, {len(errors)} errors)")
+    # Steps the database deliberately does not perform. Printed every build so
+    # a partially-installed core never looks finished.
+    manual = [(c["repo"], c["manual"]) for c in registry.get("cores", [])
+              if c.get("manual")]
+    if manual:
+        print("\nMANUAL STEPS still required (not automated on purpose):")
+        for repo, note in manual:
+            print(f"  {repo}: {note}")
     return 2 if errors else 1
 
 
