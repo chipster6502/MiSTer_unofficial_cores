@@ -1,5 +1,7 @@
 {
  "comment": "Curated registry of unofficial cores installable on the MiSTer via the custom Downloader database (docs/unofficial/db.json.zip). THIS FILE IS THE APPROVAL GATE: build_unofficial_db.py only reads what is merged here. The weekly scan proposes additions by PR; review each entry, delete what you do not want installed, and merge. Entry fields: repo (owner/name), arcade (true = .mra territory, installs under _Unofficial Cores/_Arcade), notes (free text), added (date).",
- "updated": "2026-07-21",
- "cores": []
+ "updated": "2026-07-22",
+ "cores": [
+  {"repo": "nand2mario/z386_MiSTer", "arcade": false, "notes": "z386 MiSTer core", "added": "2026-07-22"}
+ ]
 }

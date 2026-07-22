@@ -1,0 +1,16 @@
+{
+  "db_id": "chipster6502/MiSTer_unofficial_cores",
+  "db_url": "https://raw.githubusercontent.com/chipster6502/MiSTer_unofficial_cores/main/db/db.json.zip",
+  "timestamp": 1784698225,
+  "files": {
+    "_Unofficial Cores/z386_20260711.rbf": {
+      "hash": "cdae61251d7efee2dac8e5db49ce2361",
+      "size": 4289984,
+      "url": "https://github.com/nand2mario/z386_MiSTer/releases/download/20260711/z386_20260711.rbf"
+    }
+  },
+  "folders": {
+    "_Unofficial Cores": {}
+  },
+  "tag_dictionary": {}
+}
