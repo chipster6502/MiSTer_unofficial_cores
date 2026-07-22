@@ -1,0 +1,63 @@
+name: Build unofficial cores database
+
+# Turns the human-approved registry (tools/unofficial_cores.json) into the
+# custom Downloader database at docs/unofficial/db.json.zip. Runs when the
+# registry changes (a proposal PR was merged) and weekly, because upstream
+# repos publish new .rbf builds without our registry changing at all.
+#
+# The builder is conservative by design: on a per-repo failure it carries the
+# previous build's files forward, because a file that vanishes from the
+# database gets DELETED from every SD card that follows it.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - tools/unofficial_cores.json
+  schedule:
+    - cron: '5 6 * * 1'      # Mondays, after ecosystem-watch (05:17)
+  workflow_dispatch:
+
+permissions:
+  contents: write            # commit the rebuilt database
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Build the database from the approved registry
+        id: build
+        env:
+          # Thousands of core-API requests/hour; unauthenticated would cap at
+          # 60/h, which a handful of cores already exhausts.
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python3 tools/build_unofficial_db.py | tee /tmp/build.txt
+          echo "rc=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Commit the updated database
+        if: steps.build.outputs.rc != '0'
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add db/db.json db/db.json.zip \
+                  tools/unofficial_db_cache.json
+          # rc=2 with carry-over can end byte-identical; nothing to commit then.
+          git diff --cached --quiet && { echo "no file changes"; exit 0; }
+          git commit -m "chore(db): rebuild unofficial cores database"
+          git push
+
+      - name: Surface per-repo failures
+        if: steps.build.outputs.rc == '2'
+        run: |
+          echo "::warning::some repos failed; their previous files were carried over"
+          tail -40 /tmp/build.txt
+          exit 1

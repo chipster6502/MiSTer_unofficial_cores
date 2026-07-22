@@ -1,0 +1,169 @@
+name: Scan for unofficial cores
+
+# Weekly GitHub sweep for MiSTer cores that live in no database — the z386
+# case: created 2026-04-26, reached MiSTer Monitor as a user report months
+# later. Findings are reported to a tracking issue, and convention-matching
+# ones are proposed as a PR against tools/unofficial_cores.json. Merging that
+# PR is the approval gate: build-unofficial-db.yml then ships them through the
+# custom Downloader database in db/.
+#
+# The official-cores filter (tools/known_cores.json) lives in MiSTer_monitor,
+# where database triage happens; it is fetched fresh on every run so there is
+# exactly one source of truth.
+
+on:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fetch the official-cores triage list from MiSTer_monitor
+        run: |
+          curl -fsSL \
+            https://raw.githubusercontent.com/chipster6502/MiSTer_monitor/main/tools/known_cores.json \
+            -o /tmp/known_cores.json
+
+      - name: Scan GitHub for unofficial cores
+        id: gh
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          set +e
+          python3 tools/scan_github.py \
+            --days 8 \
+            --baseline tools/known_repos.json \
+            --known-cores /tmp/known_cores.json \
+            --json /tmp/github_report.json \
+            --proposals /tmp/registry_proposals.json \
+            | tee /tmp/github.txt
+          echo "found=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: Keep the report for 90 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: unofficial-cores-scan
+          path: |
+            /tmp/github_report.json
+            /tmp/registry_proposals.json
+            /tmp/github.txt
+          retention-days: 90
+
+      - name: Report to the tracking issue
+        if: steps.gh.outputs.found == '1'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const read = p => { try { return fs.readFileSync(p, 'utf8'); } catch { return ''; } };
+            const parts = [];
+            parts.push('### Unofficial cores found on GitHub');
+            parts.push('```');
+            parts.push(read('/tmp/github.txt').slice(0, 25000));
+            parts.push('```');
+            parts.push('Convention-matching finds are proposed as a PR against');
+            parts.push('`tools/unofficial_cores.json` — merging it ships them through the');
+            parts.push('Downloader database. The `maybe` bucket is leads only: confirm by');
+            parts.push('hand and add to the registry yourself if real.');
+            parts.push('');
+            parts.push('---');
+            parts.push('A repo name is not a CORENAME. For mapping, the literal key still');
+            parts.push('comes from `/status/unknown_cores` on a machine running the core.');
+            parts.push('');
+            parts.push(`_[Run log](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})_`);
+            const body = parts.join('\n');
+            const open = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'unofficial-cores',
+            });
+            if (open.data.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner, repo: context.repo.repo,
+                issue_number: open.data[0].number, body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner, repo: context.repo.repo,
+                title: 'Unofficial cores watch', labels: ['unofficial-cores'],
+                body,
+              });
+            }
+
+      - name: Propose registry additions as a PR
+        if: steps.gh.outputs.found == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="bot/unofficial-cores"
+          if gh pr list --head "$BRANCH" --state open --json number \
+               | grep -q '"number"'; then
+            echo "a proposal PR is already open; leaving it and your edits alone"
+            exit 0
+          fi
+
+          python3 - <<'EOF'
+          import io, json, time
+          props = json.load(io.open('/tmp/registry_proposals.json',
+                                    encoding='utf-8')).get('cores', [])
+          reg = json.load(io.open('tools/unofficial_cores.json',
+                                  encoding='utf-8'))
+          have = {c['repo'].lower() for c in reg.get('cores', [])}
+          new = [p for p in props if p['repo'].lower() not in have]
+          io.open('/tmp/props_count', 'w').write(str(len(new)))
+          if not new:
+              raise SystemExit
+          reg['cores'] = sorted(reg.get('cores', []) + new,
+                                key=lambda c: c['repo'].lower())
+          reg['updated'] = time.strftime('%Y-%m-%d')
+          with io.open('tools/unofficial_cores.json', 'w',
+                       encoding='utf-8', newline='\n') as f:
+              json.dump(reg, f, indent=1, ensure_ascii=False)
+              f.write('\n')
+          base = json.load(io.open('tools/known_repos.json', encoding='utf-8'))
+          rep = set(base.get('reported', [])) | {p['repo'].lower() for p in new}
+          base['reported'] = sorted(rep)
+          base['updated'] = time.strftime('%Y-%m-%d')
+          with io.open('tools/known_repos.json', 'w',
+                       encoding='utf-8', newline='\n') as f:
+              json.dump(base, f, indent=1)
+              f.write('\n')
+          EOF
+
+          [ "$(cat /tmp/props_count)" = "0" ] && { echo "nothing new to propose"; exit 0; }
+
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -B "$BRANCH"
+          git add tools/unofficial_cores.json tools/known_repos.json
+          git commit -m "feat: propose unofficial cores for the installable registry"
+          git push -f -u origin "$BRANCH"
+
+          {
+            echo "The weekly scan found unofficial core repos. Merging this PR **approves"
+            echo "them for installation**: build-unofficial-db.yml rebuilds the Downloader"
+            echo "database and any MiSTer following it picks them up on the next update."
+            echo ""
+            echo "Review rules:"
+            echo "- To **reject** a core, delete its entry from \`tools/unofficial_cores.json\`"
+            echo "  but **keep** its line in \`tools/known_repos.json\` — that records the"
+            echo "  triage and stops the weekly issue from re-announcing it."
+            echo "- \`arcade: true\` installs under \`_Unofficial Cores/_Arcade/\`."
+          } > /tmp/pr_body.md
+
+          gh pr create --head "$BRANCH" \
+            --title "Unofficial cores: registry proposals" \
+            --body-file /tmp/pr_body.md
