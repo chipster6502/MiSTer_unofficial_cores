@@ -15,7 +15,7 @@ on:
     paths:
       - tools/unofficial_cores.json
   schedule:
-    - cron: '5 6 * * 1'      # Mondays, after ecosystem-watch (05:17)
+    - cron: '5 16 * * 5'     # Fridays, after the scan (15:17)
   workflow_dispatch:
 
 permissions:

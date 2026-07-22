@@ -13,7 +13,9 @@ name: Scan for unofficial cores
 
 on:
   schedule:
-    - cron: '17 5 * * 1'
+    - cron: '17 15 * * 5'    # Fridays 15:17 UTC = 17:17 CEST / 16:17 CET, in
+                             # step with MiSTer_monitor's weekly jobs so the
+                             # whole review lands in one sitting.
   workflow_dispatch:
 
 permissions:
