@@ -168,6 +168,10 @@ def main():
     ap.add_argument("--registry", default="tools/unofficial_cores.json")
     ap.add_argument("--cache", default="tools/unofficial_db_cache.json")
     ap.add_argument("--out", default="db")
+    ap.add_argument("--allow-empty", action="store_true",
+                    help="permit publishing a database with no files; this "
+                         "UNINSTALLS everything it owns from every SD card "
+                         "following it")
     ap.add_argument("--fixture",
                     help="JSON {full_name: [artifact,...]} replacing the API "
                          "listing — for tests; downloads and hashing stay real")
@@ -240,6 +244,22 @@ def main():
         "folders": dict(sorted(folders.items())),
         "tag_dictionary": {},
     }
+
+    # An empty database is not "nothing to install" — to the Downloader it is
+    # an instruction to DELETE everything this database owns, on every SD card
+    # following it. Publishing one is therefore never an accident worth
+    # honouring: an empty registry, a JSON typo that drops the entries, or a
+    # bad merge would all wipe _Unofficial Cores/ for every user. Observed for
+    # real: the first CI run fired on a registry that was still empty and
+    # committed a 0-file database. Emptying the catalog on purpose stays
+    # possible, but it has to be said out loud.
+    if not files and not args.allow_empty:
+        print(f"\nrefusing to publish an empty database "
+              f"({len(registry.get('cores', []))} cores in the registry). "
+              f"An empty database uninstalls everything it owns from every SD "
+              f"card following it. Pass --allow-empty if that is really the "
+              f"intent.")
+        return 2
 
     def comparable(d):
         return {k: v for k, v in d.items() if k != "timestamp"}
