@@ -1,17 +1,53 @@
 {
  "comment": "Curated registry of unofficial cores installable on the MiSTer via the custom Downloader database (db/db.json.zip). THIS FILE IS THE APPROVAL GATE: build_unofficial_db.py only reads what is merged here. The weekly scan proposes additions by PR; review each entry, delete what you do not want installed, and merge. Fields: repo (owner/name), arcade (true = .mra territory, installs under _Unofficial Cores/_Arcade), extras (auxiliary assets from the same release, each {asset, dest}; dest is confined to games/ and _Unofficial Cores/), manual (steps deliberately left to a human, printed on every build), notes, added.",
- "updated": "2026-07-22",
+ "updated": "2026-07-24",
  "cores": [
+  {
+   "repo": "alphanu1/blitsCRT_Mister",
+   "arcade": false,
+   "notes": "",
+   "added": "2026-07-24"
+  },
+  {
+   "repo": "lupinthird/Arcade-MonkeyMagic_MiSTer",
+   "arcade": true,
+   "notes": "A behavior-based recreation of Nintendo's Monkey Magic",
+   "added": "2026-07-24"
+  },
   {
    "repo": "nand2mario/z386_MiSTer",
    "arcade": false,
    "extras": [
-    {"asset": "boot0.rom", "dest": "games/Z386/boot0.rom"},
-    {"asset": "boot1.rom", "dest": "games/Z386/boot1.rom"}
+    {
+     "asset": "boot0.rom",
+     "dest": "games/Z386/boot0.rom"
+    },
+    {
+     "asset": "boot1.rom",
+     "dest": "games/Z386/boot1.rom"
+    }
    ],
    "manual": "Requires the patched /media/fat/MiSTer binary shipped in the same release (it replaces the main menu executable for the WHOLE machine, so it stays a deliberate manual step) plus .vhd disk images in games/Z386/. Also needs an SDRAM module.",
    "notes": "z386 MiSTer core",
    "added": "2026-07-22"
+  },
+  {
+   "repo": "rmonic79/Arcade-Godzilla_MiSTer",
+   "arcade": true,
+   "notes": "",
+   "added": "2026-07-24"
+  },
+  {
+   "repo": "rmonic79/Arcade-SDGundamRainbow_MiSTer",
+   "arcade": true,
+   "notes": "",
+   "added": "2026-07-24"
+  },
+  {
+   "repo": "zabaglione/JR100_MiSTer",
+   "arcade": false,
+   "notes": "",
+   "added": "2026-07-24"
   }
  ]
 }
