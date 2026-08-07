@@ -1,22 +1,22 @@
 {
   "db_id": "chipster6502/MiSTer_unofficial_cores",
   "db_url": "https://raw.githubusercontent.com/chipster6502/MiSTer_unofficial_cores/main/db/db.json.zip",
-  "timestamp": 1785520052,
+  "timestamp": 1786122029,
   "files": {
-    "_Unofficial Cores/z386_20260728.rbf": {
-      "hash": "995e4ce05657dcda00689dde69bd4eb8",
-      "size": 4332056,
-      "url": "https://github.com/nand2mario/z386_MiSTer/releases/download/20260728/z386_20260728.rbf"
+    "_Unofficial Cores/z386_20260806.rbf": {
+      "hash": "42b1db92ee10c0562662ae6ea04d7e61",
+      "size": 4297896,
+      "url": "https://github.com/nand2mario/z386_MiSTer/releases/download/20260806/z386_20260806.rbf"
     },
     "games/Z386/boot0.rom": {
       "hash": "b545085fe9c0949251fd61d46ab152e1",
       "size": 65536,
-      "url": "https://github.com/nand2mario/z386_MiSTer/releases/download/20260728/boot0.rom"
+      "url": "https://github.com/nand2mario/z386_MiSTer/releases/download/20260806/boot0.rom"
     },
     "games/Z386/boot1.rom": {
       "hash": "4167d7806d036df1ec3aaea836f5c5df",
       "size": 32768,
-      "url": "https://github.com/nand2mario/z386_MiSTer/releases/download/20260728/boot1.rom"
+      "url": "https://github.com/nand2mario/z386_MiSTer/releases/download/20260806/boot1.rom"
     }
   },
   "folders": {
