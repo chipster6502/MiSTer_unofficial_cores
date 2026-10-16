@@ -1,7 +1,7 @@
 {
  "_provenance": {
   "nand2mario/z386_MiSTer": [
-   "_Unofficial Cores/z486_20261006.rbf",
+   "_Unofficial Cores/z486_20261012.rbf",
    "games/Z386/boot0.rom",
    "games/Z386/boot1.rom"
   ]
@@ -89,5 +89,17 @@
  "asset:616087077:2026-10-06T16:48:21Z": {
   "md5": "9c3782dfd9616cc0b62c4972600707f9",
   "size": 4349880
+ },
+ "asset:632620412:2026-10-12T04:09:21Z": {
+  "md5": "faf42c6d2542443ac3eae28d95a656b5",
+  "size": 4361752
+ },
+ "asset:632620417:2026-10-12T04:09:20Z": {
+  "md5": "b545085fe9c0949251fd61d46ab152e1",
+  "size": 65536
+ },
+ "asset:632620426:2026-10-12T04:09:20Z": {
+  "md5": "4167d7806d036df1ec3aaea836f5c5df",
+  "size": 32768
  }
 }
